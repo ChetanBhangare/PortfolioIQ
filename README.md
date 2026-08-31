@@ -148,3 +148,23 @@ Run the offline test suite (it uses mocks and requires no AWS credentials):
 ```bash
 pytest
 ```
+
+## Scheduled refresh with GitHub OIDC
+
+The `Daily Market Data Refresh` workflow runs at 23:30 UTC Monday through Friday
+and can also be started manually from the Actions tab. It assumes
+`PortfolioIQGitHubActionsRole` through GitHub OIDC, verifies the resulting AWS
+identity and S3 prefix, installs only the ingestion dependencies, and runs the
+default configured ticker universe incrementally. It never uses `--full-refresh`.
+
+The repository must define these Actions variables:
+
+- `AWS_ROLE_ARN`: full ARN of the GitHub Actions IAM role
+- `AWS_REGION`: bucket region
+- `S3_BUCKET`: private data-lake bucket
+- `S3_PREFIX`: PortfolioIQ object prefix
+
+No `AWS_PROFILE`, access-key ID, secret access key, or local `.env` is used in
+GitHub Actions. `aws-actions/configure-aws-credentials@v4` exchanges GitHub's OIDC
+token for temporary role credentials. The AWS role trust policy must restrict
+`repo:ChetanBhangare/PortfolioIQ` and the intended branch/event subjects.

@@ -81,9 +81,11 @@ read, write, and connectivity-test deletion to this project's bucket and prefix.
 Deletion can be removed if the connectivity/maintenance workflow changes. Review
 and attach it manually only after testing; the project does not change IAM policy.
 
-The scheduled GitHub workflow declares `id-token: write` but is not authenticated
-yet. Production should use GitHub OIDC: a narrowly trusted repository/branch
-assumes an AWS IAM role, `aws-actions/configure-aws-credentials` exchanges the
-short-lived token, and the role receives the same prefix-scoped S3 permissions.
-Do not store long-lived IAM user keys in GitHub secrets. OIDC role/trust setup is
-deliberately deferred until repository owner/name and deployment branch are final.
+The scheduled GitHub workflow uses GitHub OIDC: the `main` repository workflow
+assumes `PortfolioIQGitHubActionsRole`, and
+`aws-actions/configure-aws-credentials@v4` exchanges the OIDC token for temporary
+AWS credentials. The job receives only non-secret repository variables and does
+not use a local profile, `.env`, or long-lived AWS access keys. The role trust
+policy should restrict subjects to `ChetanBhangare/PortfolioIQ` and the intended
+branch or workflow events; its permissions should remain scoped to the PortfolioIQ
+S3 bucket and prefix.
