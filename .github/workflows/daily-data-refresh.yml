@@ -23,57 +23,6 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-ingestion.txt
 
-      - name: Diagnose GitHub OIDC claims
-        shell: bash
-        run: |
-          python - <<'PY'
-          import base64
-          import json
-          import os
-          import sys
-          import urllib.parse
-          import urllib.request
-
-          claim_names = (
-              "aud",
-              "sub",
-              "repository",
-              "repository_owner",
-              "ref",
-              "event_name",
-              "workflow",
-          )
-
-          try:
-              request_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
-              request_token = os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
-              parsed_url = urllib.parse.urlsplit(request_url)
-              query = urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
-              query.append(("audience", "sts.amazonaws.com"))
-              oidc_url = urllib.parse.urlunsplit(
-                  parsed_url._replace(query=urllib.parse.urlencode(query))
-              )
-              request = urllib.request.Request(
-                  oidc_url,
-                  headers={"Authorization": f"Bearer {request_token}"},
-              )
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  jwt = json.load(response)["value"]
-
-              encoded_payload = jwt.split(".", 2)[1]
-              padding = "=" * (-len(encoded_payload) % 4)
-              payload = json.loads(
-                  base64.urlsafe_b64decode(encoded_payload + padding).decode("utf-8")
-              )
-          except Exception as error:
-              print(f"OIDC claim diagnostic failed: {type(error).__name__}", file=sys.stderr)
-              raise SystemExit(1)
-
-          print("GitHub OIDC claims used for AWS trust-policy diagnosis:")
-          for claim_name in claim_names:
-              print(f"{claim_name}: {json.dumps(payload.get(claim_name))}")
-          PY
-
       - name: Configure AWS credentials with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
