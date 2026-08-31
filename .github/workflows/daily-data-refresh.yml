@@ -1,0 +1,24 @@
+name: Daily Market Data Refresh
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 23 * * 1-5"
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions: {contents: read, id-token: write}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r requirements.txt
+        working-directory: backend
+      - name: Refresh data
+        working-directory: backend
+        env:
+          STORAGE_MODE: ${{ vars.STORAGE_MODE }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_PREFIX: portfolioiq
+          DEFAULT_START_DATE: "2016-01-01"
+        run: python -m app.data.ingestion
