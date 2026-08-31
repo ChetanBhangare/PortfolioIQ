@@ -50,12 +50,13 @@ object. Manifests describe datasets; they do not duplicate observations.
 ## Data quality policy
 
 Hard failures block a Parquet write: empty datasets, duplicate ticker/date rows,
-missing or nonpositive close values, non-monotonic dates, inconsistent OHLC values,
-and negative volume. Warnings do not block a write: moves over 50%, calendar gaps
-over 10 days, and data more than 7 calendar days stale. Extreme moves remain
-warnings because genuine market events and adjusted-price discontinuities require
-review rather than automatic rejection. Every report includes counts plus explicit
-`failures`, `warnings`, `passed`, and `status` fields.
+missing or nonpositive close values, non-monotonic dates, negative volume, and
+widespread OHLC inconsistency (more than five rows or 0.1% of the dataset).
+Warnings do not block a write: isolated OHLC inconsistencies, moves over 50%,
+calendar gaps over 10 days, and data more than 7 calendar days stale. Isolated
+adjusted-price anomalies remain visible without discarding an otherwise sound
+history. Every report includes counts plus explicit `failures`, `warnings`,
+`passed`, and `status` fields.
 
 ## Cost posture
 
@@ -89,3 +90,38 @@ not use a local profile, `.env`, or long-lived AWS access keys. The role trust
 policy should restrict subjects to `ChetanBhangare/PortfolioIQ` and the intended
 branch or workflow events; its permissions should remain scoped to the PortfolioIQ
 S3 bucket and prefix.
+
+## Release 1 operational baseline
+
+The frozen Release 1 path is:
+
+```text
+Yahoo Finance -> provider abstraction -> incremental ingestion -> structured
+quality validation -> private S3 Parquet + JSON manifests/reports -> FastAPI
+```
+
+The 33-ticker universe is defined once as `DEFAULT_ASSET_UNIVERSE` in
+`backend/app/core/settings.py`. Market-price schema `1.0` contains `date`,
+`ticker`, `open`, `high`, `low`, `close`, and `volume`. Each ticker has one raw
+Parquet object, one metadata manifest, and one quality report below the
+`portfolioiq` prefix. The status endpoint reads manifests; it does not scan
+Parquet. Price endpoints read the configured storage backend, so S3 mode has no
+local-file fallback.
+
+The 2026-08-31 freeze inventory has 33 successful datasets, 88,436 total rows,
+and 99 current objects totaling approximately 4.59 MB. Thirty-two datasets pass
+cleanly; VLUE passes with one isolated OHLC warning. There are no hard failures,
+stale warnings, suspicious-gap warnings, extreme-move warnings, duplicate-key
+issues, or schema-version mismatches.
+
+Incremental refreshes preserve current Parquet objects and rewrite only changed
+datasets; metadata and quality reports record every refresh. A full current-universe
+rerun completed in 11.813 seconds with 33 unchanged and zero rewritten Parquet
+objects. The S3-backed API reported all 33 datasets available. The backend suite
+contains 20 offline tests.
+
+Operational limitations remain intentionally narrow: Yahoo availability and
+adjusted-bar quality are external dependencies; the model is daily, not intraday;
+S3 partitioning remains one file per ticker at this scale; and GitHub/AWS trust
+and role policies require administrative review when repository or branch scope
+changes. These limitations do not require Release 2 architecture in Release 1.

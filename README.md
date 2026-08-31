@@ -168,3 +168,48 @@ No `AWS_PROFILE`, access-key ID, secret access key, or local `.env` is used in
 GitHub Actions. `aws-actions/configure-aws-credentials@v4` exchanges GitHub's OIDC
 token for temporary role credentials. The AWS role trust policy must restrict
 `repo:ChetanBhangare/PortfolioIQ` and the intended branch/event subjects.
+
+## Release 1 freeze snapshot
+
+Release 1 is the cloud data foundation. Yahoo Finance supplies adjusted daily
+market bars through a provider abstraction; incremental Python ingestion validates
+and stores one Parquet object per ticker in private, versioned S3. Compact schema
+`1.0` manifests support API status reads without opening analytical objects.
+
+The configured universe is:
+
+```text
+SPY QQQ IWM DIA XLF XLE XLK XLV XLY XLP XLI XLU XLB XLRE EFA EEM VEA VWO
+TLT IEF SHY LQD HYG TIP GLD SLV DBC VNQ MTUM QUAL VLUE USMV VIG
+```
+
+As of 2026-08-31, all 33 configured datasets are present under:
+
+```text
+portfolioiq/raw/market_prices/<TICKER>.parquet
+portfolioiq/metadata/market_prices/<TICKER>.json
+portfolioiq/reports/data_quality/<TICKER>.json
+```
+
+The inventory contains 88,436 rows from 2016-01-04 through 2026-08-31,
+33 Parquet objects, 33 manifests, and 33 quality reports. Thirty-two datasets pass
+without warnings. VLUE passes with one recorded Yahoo OHLC inconsistency on
+2026-08-31; widespread OHLC inconsistency remains a hard failure.
+
+Incremental runs load each stored maximum date and request only a missing range.
+When current, they refresh metadata and quality reports but do not rewrite
+Parquet. A measured 33-ticker current run rewrote zero Parquet objects and took
+11.813 seconds locally. GitHub Actions uses OIDC to assume a bucket-scoped role
+and runs at 23:30 UTC Monday through Friday, with manual dispatch available.
+
+Release 1 has 20 deterministic backend tests. Tests mock AWS and do not require
+cloud credentials. Local boto3 authentication uses the normal credential chain;
+GitHub uses temporary OIDC credentials. `.env` and credentials are untracked,
+the S3 bucket is private with public access blocked and versioning enabled, and
+application responses do not expose secrets.
+
+Known limitations: Yahoo Finance is an external best-effort source; the platform
+currently stores daily adjusted bars rather than intraday data; availability is
+limited to the configured ETF universe; isolated provider anomalies require
+quality-report review; and one-object-per-ticker should be reconsidered only if
+the platform grows to intraday or multi-million-row ticker datasets.

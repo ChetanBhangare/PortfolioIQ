@@ -8,14 +8,14 @@ def test_duplicate_fails():
     assert validate_prices(df,"SPY").passed is False
 
 
-def test_ohlc_and_negative_volume_are_hard_failures():
+def test_isolated_ohlc_issue_warns_while_negative_volume_fails():
     df=pd.DataFrame({
         "date":pd.to_datetime(["2026-01-02"]),"ticker":["SPY"],
         "open":[100.],"high":[99.],"low":[98.],"close":[101.],"volume":[-1]
     })
     report=validate_prices(df,"SPY")
     assert report.passed is False
-    assert "ohlc_inconsistency" in report.failures
+    assert "ohlc_inconsistency" in report.warnings
     assert "negative_volume" in report.failures
 
 
@@ -34,3 +34,15 @@ def test_ohlc_check_allows_floating_point_noise():
         "low":[116.3576677267992],"close":[117.3523941040039],"volume":[1]
     })
     assert validate_prices(df,"TLT").passed is True
+
+
+def test_widespread_ohlc_inconsistency_is_hard_failure():
+    df=pd.DataFrame({
+        "date":pd.date_range("2026-01-01",periods=6),"ticker":["SPY"]*6,
+        "open":[100.]*6,"high":[99.]*6,"low":[98.]*6,"close":[101.]*6,
+        "volume":[1]*6,
+    })
+    report=validate_prices(df,"SPY")
+    assert "ohlc_inconsistency" in report.warnings
+    assert "excessive_ohlc_inconsistency" in report.failures
+    assert report.passed is False

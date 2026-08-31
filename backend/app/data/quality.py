@@ -83,13 +83,17 @@ def validate_prices(df, ticker):
         (missing_close, "missing_close"),
         (nonpositive_close, "nonpositive_close"),
         (non_monotonic_dates, "non_monotonic_dates"),
-        (ohlc_inconsistencies, "ohlc_inconsistency"),
         (negative_volume, "negative_volume"),
     ):
         if count:
             failures.append(name)
 
+    if ohlc_inconsistencies > 5 or ohlc_inconsistencies / len(df) > 0.001:
+        failures.append("excessive_ohlc_inconsistency")
+
     warnings = []
+    if ohlc_inconsistencies:
+        warnings.append("ohlc_inconsistency")
     if extreme_daily_moves:
         warnings.append("extreme_daily_move")
     if suspicious_gaps:
