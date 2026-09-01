@@ -337,3 +337,44 @@ Example request additions:
 R2.3 remains a single-period mean-covariance engine. It does not model transaction
 costs, taxes, liquidity, estimation error, resampling, Black-Litterman views,
 shorting, leverage, multi-period rebalancing, forecasting, or machine learning.
+
+## Release 2.4 application integration and visualization
+
+R2.4 provides a desktop-first Next.js, React, TypeScript, Tailwind CSS, and Plotly
+application for the validated analytics APIs. The application includes Overview,
+Portfolio Builder, Performance, Risk, Benchmark-Relative Contribution Analysis,
+Optimization, and Stress Testing pages. Analytics are never recalculated in the
+browser: charts, metrics, and tables display typed backend responses.
+
+The Portfolio Builder defaults to SPY 40%, QQQ 25%, TLT 15%, GLD 10%, and VNQ
+10%, benchmarked to SPY from 2021-01-01. Inputs are stored in versioned browser
+local storage and can be reset. `Run Analysis` sends the portfolio concurrently to
+the performance, risk, and optimization endpoints, then retains the three-response
+bundle in React Context so navigation does not repeat S3-backed calculations.
+
+The performance response now includes backward-compatible cumulative growth,
+drawdown, monthly-return, and annual-return series calculated by the established
+Python analytics functions. This supports Plotly visualization without duplicating
+financial formulas in TypeScript.
+
+Run locally in two terminals:
+
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload --port 8000
+
+cd frontend
+npm install
+npm run dev
+```
+
+Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` when the backend is not at
+the default URL. The backend uses its existing `STORAGE_MODE`, `AWS_REGION`,
+`S3_BUCKET`, `S3_PREFIX`, and optional local `AWS_PROFILE` configuration. No AWS
+credential belongs in frontend configuration.
+
+R2.4 has no authentication, database-backed portfolios, collaboration, live
+streaming, transaction-cost modeling, or production deployment. Analysis results
+are held in memory and must be rerun after a browser refresh; only portfolio inputs
+persist locally.

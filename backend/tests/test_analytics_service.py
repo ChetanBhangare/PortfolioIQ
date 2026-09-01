@@ -62,6 +62,11 @@ def test_service_loads_unique_tickers_once_aligns_dates_and_serializes_json():
     decoded=json.loads(encoded)
     assert decoded["portfolio_name"]=="Synthetic portfolio"
     assert decoded["performance"]["total_return"] is not None
+    assert len(decoded["cumulative_growth"])==response.period.observations
+    assert len(decoded["drawdown_series"])==response.period.observations
+    assert decoded["cumulative_growth"][-1]["portfolio"]-1==pytest.approx(response.performance.total_return)
+    assert min(point["value"] for point in decoded["drawdown_series"])==pytest.approx(response.drawdown.maximum_drawdown)
+    assert decoded["monthly_returns"] and decoded["annual_returns"]
     assert "NaN" not in encoded and "Infinity" not in encoded
 
 

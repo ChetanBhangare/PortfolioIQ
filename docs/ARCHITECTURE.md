@@ -259,3 +259,38 @@ holding weights and reconcile their asset contributions to the total portfolio
 shock. They are deliberately separate from observed R2.2 historical stress tests:
 they have no dates, estimated likelihoods, factor transmission, or predictive
 claim. Unknown assets and infeasible optimization inputs are rejected explicitly.
+
+## Release 2.4 application architecture
+
+The web client is a Next.js App Router application with a persistent institutional
+shell and seven route-level views. Reusable components are separated into layout,
+common state/metric components, Plotly chart components, and portfolio editing.
+Central `lib` modules contain exact API types, fetch functions, formatters, the ETF
+universe, and the default input portfolio.
+
+```text
+Portfolio Builder
+  -> versioned local input state
+  -> explicit Run Analysis
+  -> concurrent POST performance + risk + optimization
+  -> shared React Context response bundle
+  -> Overview / Performance / Risk / Attribution / Optimization / Stress pages
+```
+
+Results remain in shared client memory while navigating, preventing repeated S3
+reads. Editing inputs does not silently rerun calculations. Loading, empty,
+validation, unavailable-backend, timeout, and unexpected-error states use shared
+components and never expose server traces. Portfolio inputs, but not analytical
+outputs, are persisted in browser local storage under a versioned key.
+
+Plotly is loaded only in the browser and is wrapped by one responsive component
+with consistent typography, percent axes, hover labels, colors, and restrained
+gridlines. Financial calculations remain exclusively in Python. The only backend
+contract extension is typed cumulative-growth, drawdown, monthly-return, and
+annual-return series on the R2.1 response; these reuse existing analytics functions
+and default to empty arrays for backward compatibility.
+
+`NEXT_PUBLIC_API_BASE_URL` controls the browser-visible API origin and defaults to
+`http://localhost:8000`. Backend CORS configuration continues to control the
+allowed frontend origin. R2.4 does not introduce server-side frontend data access,
+user accounts, shared portfolios, PostgreSQL, authentication, deployment, or ML.

@@ -1,0 +1,5 @@
+"use client";
+import dynamic from "next/dynamic";import type {ComponentType} from "react";import type {PlotParams} from "react-plotly.js";import type {Layout} from "plotly.js";
+const Plotly=dynamic(()=>import("react-plotly.js"),{ssr:false}) as ComponentType<PlotParams>;
+const baseLayout:Partial<Layout>={paper_bgcolor:"transparent",plot_bgcolor:"transparent",font:{family:"Inter, system-ui, sans-serif",color:"#405269",size:12},margin:{l:55,r:20,t:18,b:48},hoverlabel:{bgcolor:"#102a43",font:{color:"#fff"}},xaxis:{gridcolor:"#e7edf3",zeroline:false},yaxis:{gridcolor:"#e7edf3",zeroline:false}};
+export function Chart({data,layout,height=350,ariaLabel}:{data:Plotly.Data[];layout?:Partial<Layout>;height?:number;ariaLabel:string}){return <div role="img" aria-label={ariaLabel}><Plotly data={data} layout={{...baseLayout,...layout,height,autosize:true,xaxis:{...baseLayout.xaxis,...layout?.xaxis},yaxis:{...baseLayout.yaxis,...layout?.yaxis}}} config={{responsive:true,displaylogo:false,modeBarButtonsToRemove:["lasso2d","select2d"]}} useResizeHandler className="plot"/></div>}
