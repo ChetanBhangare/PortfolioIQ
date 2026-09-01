@@ -125,3 +125,102 @@ adjusted-bar quality are external dependencies; the model is daily, not intraday
 S3 partitioning remains one file per ticker at this scale; and GitHub/AWS trust
 and role policies require administrative review when repository or branch scope
 changes. These limitations do not require Release 2 architecture in Release 1.
+
+## Release 2.1 analytics core
+
+`app.analytics` is a pure calculation and orchestration layer above
+`app.data.query.load_prices`; it does not address S3 directly. `returns.py` defines
+return transformations, `portfolio.py` handles alignment and static-weight
+aggregation, `performance.py` calculates absolute performance, `drawdown.py`
+tracks underwater periods, `benchmark.py` calculates relative statistics,
+`schemas.py` owns request/response contracts, and `service.py` orchestrates one
+load per unique ticker. FastAPI delegates to the service and contains no formulas.
+
+### Conventions and formulas
+
+- Daily return: `r[t] = P[t] / P[t-1] - 1` using adjusted close.
+- Wealth index: `W[t] = product(1 + r[i])`, initialized economically at 1.0.
+- Total return: `product(1 + r) - 1`.
+- Monthly and annual returns: compound observed daily returns in calendar periods.
+- Portfolio return: `sum(weight[i] * return[i,t])` with static target weights.
+- CAGR: `(ending wealth)^(252 / observations) - 1` by default.
+- Volatility: sample daily standard deviation multiplied by `sqrt(252)`.
+- Sharpe: mean daily excess return divided by its sample standard deviation,
+  multiplied by `sqrt(252)`.
+- Sortino: mean daily excess return divided by the root mean square of negative
+  daily excess returns, multiplied by `sqrt(252)`.
+- Calmar: CAGR divided by the absolute maximum drawdown.
+- Drawdown: wealth divided by its running peak minus 1.0.
+- Beta: sample covariance of portfolio and benchmark divided by benchmark variance.
+- Alpha: daily CAPM intercept multiplied by 252.
+- R²: squared Pearson correlation of aligned daily returns.
+- Active return: mean daily portfolio-minus-benchmark return multiplied by 252.
+- Tracking error: sample standard deviation of daily active returns times
+  `sqrt(252)`; information ratio is active return divided by tracking error.
+- Capture ratios: compounded portfolio return divided by compounded benchmark
+  return conditional on positive or negative benchmark days.
+
+The annual risk-free rate is converted linearly to a daily rate by dividing by the
+annualization factor. The default factor is 252 and is configurable per request.
+Undefined ratios caused by zero denominators or insufficient data serialize as
+JSON `null`.
+
+### Alignment and limitations
+
+Returns are calculated before date filtering so the first in-range trading day can
+use its preceding stored close. Holdings and benchmark are then inner-joined on
+shared return dates; no price or return is forward-filled. At least two aligned
+observations are required. Partial first/last months and years are included in
+period extremes. R2.1 does not model taxes, fees, cash flows, execution, transaction
+costs, drifted buy-and-hold weights, or explicit rebalance schedules. Benchmark
+regression is single-factor arithmetic-return analysis, not a multifactor model.
+
+## Release 2.2 risk architecture
+
+R2.2 extends the pure analytics layer without changing Release 1 storage:
+
+```text
+PortfolioRiskService
+  -> PortfolioAnalyticsService.prepare_returns (one load per unique ticker)
+  -> risk.py          covariance, correlation, volatility, VaR/CVaR, concentration
+  -> contribution.py Euler volatility and geometrically linked return contribution
+  -> attribution.py  benchmark-relative contribution analysis
+  -> stress.py       fixed and custom observed historical windows
+  -> typed PortfolioRiskResponse
+```
+
+Covariance uses aligned daily simple returns and sample normalization (`ddof=1`).
+Annual covariance is daily covariance multiplied by the configured factor, 252 by
+default. Portfolio variance is `w'Σw`; annual volatility is its square root. The
+Euler decomposition uses `MCR[i] = (Σw)[i] / sigma` and
+`CRC[i] = weight[i] * MCR[i]`. Component contributions sum to portfolio volatility;
+percent contributions sum to one when volatility is nonzero. Singular covariance
+matrices are valid; zero volatility produces null, rather than invented, risk
+contributions.
+
+Historical VaR at confidence `c` is `max(0, -quantile(return, 1-c))`. Historical
+CVaR is `max(0, -mean(return <= quantile))`. Both are positive daily loss
+magnitudes. Parametric VaR is `max(0, z[c] * daily_sigma - daily_mean)` under a
+normal-return assumption. Supported confidence levels are 95% and 99%; normal VaR
+does not model skew, kurtosis, liquidity, or clustered volatility.
+
+HHI is the sum of squared target weights and effective holdings is its reciprocal.
+Return contribution uses daily static-weight arithmetic contributions followed by
+exact geometric linking through later portfolio growth, so linked contributions
+reconcile to compounded total return. Benchmark-equivalent weights are 100% in the
+benchmark ETF and zero elsewhere. Active contribution is portfolio linked
+contribution minus benchmark linked contribution. This is deliberately not called
+Brinson attribution because constituent/sector benchmark weights are unavailable.
+
+Stress tests slice observed aligned returns using centrally defined windows:
+
+- COVID Crash: 2020-02-19 through 2020-03-23
+- 2022 Rate Shock: 2022-01-03 through 2022-10-14
+- 2023 Banking Stress: 2023-03-08 through 2023-03-24
+
+Each available window reports compounded portfolio and benchmark returns, their
+difference, portfolio maximum drawdown, worst day, and annualized volatility.
+Unavailable and insufficient windows are returned explicitly. Custom date windows
+use the same calculation path. Hypothetical shocks, full Brinson attribution,
+liquidity risk, backtested VaR exceptions, and time-varying covariance are outside
+R2.2.

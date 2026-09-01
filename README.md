@@ -213,3 +213,81 @@ currently stores daily adjusted bars rather than intraday data; availability is
 limited to the configured ETF universe; isolated provider anomalies require
 quality-report review; and one-object-per-ticker should be reconsidered only if
 the platform grows to intraday or multi-million-row ticker datasets.
+
+## Release 2.1 portfolio analytics API
+
+`POST /api/analytics/portfolio` accepts a named long-only portfolio, benchmark,
+date range, annual risk-free rate, and static target weights. Tickers must belong
+to the configured universe, holdings must be unique and nonnegative, and weights
+must sum to 1.0 within `1e-6`.
+
+```json
+{
+  "portfolio_name": "Core multi-asset portfolio",
+  "benchmark_ticker": "SPY",
+  "holdings": [
+    {"ticker": "SPY", "weight": 0.40},
+    {"ticker": "QQQ", "weight": 0.25},
+    {"ticker": "TLT", "weight": 0.15},
+    {"ticker": "GLD", "weight": 0.10},
+    {"ticker": "VNQ", "weight": 0.10}
+  ],
+  "start_date": "2021-01-01",
+  "end_date": "2026-08-31",
+  "risk_free_rate": 0.0,
+  "annualization_factor": 252
+}
+```
+
+The service loads every unique ticker once through the Release 1 query layer. It
+uses adjusted close-to-close simple returns and the intersection of trading dates
+shared by every holding and the benchmark. Missing returns are never forward-filled.
+Static target weights are applied to each aligned daily return; transaction costs,
+weight drift, cash flows, and rebalance schedules are outside R2.1.
+
+The response contains total return, CAGR, volatility, Sharpe, Sortino, Calmar,
+best/worst day/month/year, structured drawdown dates and durations, and benchmark
+alpha, beta, R², active return, tracking error, information ratio, and capture
+ratios. All outputs are typed and JSON-safe. The backend suite contains 41
+deterministic tests and analytics tests use synthetic data rather than AWS/Yahoo.
+
+## Release 2.2 risk, contribution, attribution, and stress API
+
+`POST /api/analytics/portfolio/risk` accepts the R2.1 portfolio contract plus
+`confidence_levels` (`0.95`, `0.99`) and an optional custom historical stress
+window. It loads each unique ticker once through the existing query layer and
+reuses one aligned return frame for every risk calculation.
+
+The response includes annualized covariance and correlation matrices, covariance-
+based portfolio volatility, one-day historical and normal-parametric VaR,
+historical CVaR, concentration, Euler volatility contributions, geometrically
+linked return contributions, benchmark-relative contributions, and historical
+stress results. VaR and CVaR are positive loss magnitudes: `0.02` means a 2%
+one-day loss threshold or expected tail loss.
+
+Historical VaR is the negative lower empirical return quantile. Historical CVaR
+is the positive magnitude of the average return at or below that quantile.
+Parametric VaR is `max(0, z * daily volatility - daily mean)` and assumes normal
+daily returns; it is not presented as a tail-risk model.
+
+Concentration reports largest, top-three, and top-five weights, HHI
+`sum(weight²)`, and effective holdings `1 / HHI`. Risk contributions use annualized
+sample covariance: marginal contribution is `(Σw)[i] / portfolio volatility`, and
+component contribution is weight times marginal contribution. Components reconcile
+to portfolio volatility and percentage contributions reconcile to 1.0.
+
+Return contributions begin with daily `weight * asset return` and apply exact
+geometric linking through subsequent portfolio growth. Their sum therefore equals
+the compounded static-weight portfolio return; multiplying each asset's full-period
+return by its starting weight would not provide that identity. Benchmark analysis
+uses a 100% benchmark-equivalent portfolio and reports active differences. This is
+benchmark-relative contribution analysis, not Brinson attribution.
+
+Fixed stress windows are COVID Crash (2020-02-19–2020-03-23), 2022 Rate Shock
+(2022-01-03–2022-10-14), and 2023 Banking Stress (2023-03-08–2023-03-24, covering
+the SVB failure and immediate banking-market response). Scenarios outside the
+requested portfolio period are explicitly unavailable. R2.2 does not implement
+hypothetical factor shocks.
+
+The backend suite contains 57 deterministic tests. No analytics unit test contacts
+AWS or Yahoo.
