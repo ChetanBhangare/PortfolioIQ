@@ -91,6 +91,22 @@ class PeriodExtreme(BaseModel):
     value: float | None
 
 
+class GrowthPoint(BaseModel):
+    date: date
+    portfolio: float
+    benchmark: float
+
+
+class DrawdownPoint(BaseModel):
+    date: date
+    value: float
+
+
+class PeriodReturnPoint(BaseModel):
+    date: date
+    value: float
+
+
 class PortfolioAnalyticsResponse(BaseModel):
     model_config = ConfigDict(ser_json_inf_nan="null")
 
@@ -104,6 +120,10 @@ class PortfolioAnalyticsResponse(BaseModel):
     benchmark: BenchmarkMetrics
     drawdown: DrawdownMetrics
     best_worst_periods: dict[str, PeriodExtreme]
+    cumulative_growth: list[GrowthPoint] = Field(default_factory=list)
+    drawdown_series: list[DrawdownPoint] = Field(default_factory=list)
+    monthly_returns: list[PeriodReturnPoint] = Field(default_factory=list)
+    annual_returns: list[PeriodReturnPoint] = Field(default_factory=list)
     assumptions: list[str]
 
 

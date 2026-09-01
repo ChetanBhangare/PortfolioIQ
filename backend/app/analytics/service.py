@@ -5,10 +5,10 @@ import pandas as pd
 
 from app.analytics import AnalyticsError
 from app.analytics.benchmark import benchmark_metrics
-from app.analytics.drawdown import maximum_drawdown_details
+from app.analytics.drawdown import drawdown_series, maximum_drawdown_details
 from app.analytics.performance import best_worst_periods, performance_metrics
 from app.analytics.portfolio import align_returns, portfolio_returns
-from app.analytics.returns import simple_returns
+from app.analytics.returns import annual_returns, monthly_returns, simple_returns, wealth_index
 from app.analytics.schemas import PortfolioAnalyticsRequest, PortfolioAnalyticsResponse
 from app.data.query import load_prices
 
@@ -62,6 +62,11 @@ class PortfolioAnalyticsService:
         portfolio = prepared.portfolio
         benchmark = prepared.benchmark
         drawdown = maximum_drawdown_details(portfolio)
+        portfolio_growth = wealth_index(portfolio)
+        benchmark_growth = wealth_index(benchmark)
+        underwater = drawdown_series(portfolio)["drawdown"]
+        months = monthly_returns(portfolio)
+        years = annual_returns(portfolio)
         response = {
             "portfolio_name": request.portfolio_name,
             "benchmark_ticker": request.benchmark_ticker,
@@ -89,6 +94,13 @@ class PortfolioAnalyticsService:
             ),
             "drawdown": drawdown,
             "best_worst_periods": best_worst_periods(portfolio),
+            "cumulative_growth": [
+                {"date": index.date(), "portfolio": float(portfolio_growth.loc[index]), "benchmark": float(benchmark_growth.loc[index])}
+                for index in aligned.index
+            ],
+            "drawdown_series": [{"date": index.date(), "value": float(value)} for index, value in underwater.items()],
+            "monthly_returns": [{"date": index.date(), "value": float(value)} for index, value in months.items()],
+            "annual_returns": [{"date": index.date(), "value": float(value)} for index, value in years.items()],
             "assumptions": [
                 "Close-to-close simple returns use adjusted close prices.",
                 "Static target weights are applied to every aligned daily return.",

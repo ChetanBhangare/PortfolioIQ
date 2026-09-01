@@ -1,0 +1,4 @@
+import type {PortfolioInput} from "./types";
+export const ETF_UNIVERSE=["SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","XLY","XLP","XLI","XLU","XLB","XLRE","EFA","EEM","VEA","VWO","TLT","IEF","SHY","LQD","HYG","TIP","GLD","SLV","DBC","VNQ","MTUM","QUAL","VLUE","USMV","VIG"];
+export const DEFAULT_PORTFOLIO:PortfolioInput={portfolio_name:"Core Multi-Asset Portfolio",benchmark_ticker:"SPY",holdings:[{ticker:"SPY",weight:.4},{ticker:"QQQ",weight:.25},{ticker:"TLT",weight:.15},{ticker:"GLD",weight:.1},{ticker:"VNQ",weight:.1}],start_date:"2021-01-01",end_date:new Date().toISOString().slice(0,10),risk_free_rate:0,annualization_factor:252};
+export const STRATEGY_LABELS:Record<string,string>={current:"Current",equal_weight:"Equal Weight",minimum_variance:"Minimum Variance",maximum_sharpe:"Maximum Sharpe",risk_parity:"Risk Parity",efficient_frontier:"Efficient Frontier"};
