@@ -224,3 +224,38 @@ Unavailable and insufficient windows are returned explicitly. Custom date window
 use the same calculation path. Hypothetical shocks, full Brinson attribution,
 liquidity risk, backtested VaR exceptions, and time-varying covariance are outside
 R2.2.
+
+## Release 2.3 optimization architecture
+
+R2.3 remains inside the pure analytics layer and reuses the aligned return frame
+prepared by `PortfolioAnalyticsService`:
+
+```text
+POST /api/analytics/portfolio/optimize
+  -> PortfolioOptimizationService
+  -> prepare_returns (one query-layer load per unique ticker)
+  -> optimization.py (strategies, metrics, efficient frontier)
+  -> constraints.py  (bounds, full investment, turnover, target return)
+  -> scenarios.py    (illustrative asset-level shocks)
+  -> typed PortfolioOptimizationResponse
+```
+
+SciPy SLSQP solves the constrained problems. All portfolios are long-only and
+fully invested. Minimum variance minimizes `w'Σw`; maximum Sharpe minimizes the
+negative excess-return/volatility ratio. Risk parity minimizes dispersion in Euler
+percentage risk contributions using deterministic multi-starts because the direct
+percentage-contribution objective can have local minima. Weight bounds and optional
+one-way turnover apply to numerical strategies. A target-return equality defines
+each efficient-frontier point, and points that fail numerically are reported with
+their target and reason rather than fabricated or silently substituted.
+
+Expected returns and covariance are estimated once from the same aligned daily
+sample used by R2.1 and R2.2. The engine reports estimation assumptions and solver
+status, iterations, and messages. It does not alter ingestion, Parquet layout,
+query behavior, or established R2.1/R2.2 formulas.
+
+Illustrative scenarios apply named or custom percentage shocks directly to current
+holding weights and reconcile their asset contributions to the total portfolio
+shock. They are deliberately separate from observed R2.2 historical stress tests:
+they have no dates, estimated likelihoods, factor transmission, or predictive
+claim. Unknown assets and infeasible optimization inputs are rejected explicitly.

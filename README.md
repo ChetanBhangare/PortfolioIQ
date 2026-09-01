@@ -291,3 +291,49 @@ hypothetical factor shocks.
 
 The backend suite contains 57 deterministic tests. No analytics unit test contacts
 AWS or Yahoo.
+
+## Release 2.3 optimization and scenario API
+
+`POST /api/analytics/portfolio/optimize` adds long-only, fully invested portfolio
+construction without changing the Release 1 data path. It returns the current and
+equal-weight portfolios, minimum variance, maximum Sharpe, constrained risk parity,
+and a requested-point efficient frontier. Every strategy reports weights, expected
+annual return, covariance-based annual volatility, Sharpe ratio, HHI, effective
+holdings, one-way turnover, and solver diagnostics.
+
+Expected returns are arithmetic daily means multiplied by the annualization factor;
+covariance is the aligned daily sample covariance multiplied by that factor. Minimum
+variance minimizes `w'Σw`; maximum Sharpe maximizes `(w'μ - rf) / sqrt(w'Σw)`;
+risk parity minimizes squared differences between percentage volatility
+contributions. Under binding bounds or turnover limits, exact equal risk
+contributions may be infeasible and the constrained best result is returned.
+
+The contract supports per-asset minimum and maximum weights, an optional target
+return for minimum variance/frontier feasibility, and optional one-way turnover
+`0.5 * sum(abs(new weight - current weight))`. Infeasible bounds, target returns,
+turnover configurations, and numerical solver failures produce clear HTTP 422
+responses; unsuccessful results are never silently presented as portfolios.
+
+Scenario output is explicitly labelled `illustrative_hypothetical_shock`. A
+portfolio shock is the sum of target weight times supplied asset shock. These
+forward-looking what-if calculations are distinct from R2.2's observed historical
+stress windows and are not forecasts, factor models, or probability estimates.
+
+Example request additions:
+
+```json
+{
+  "objective": "maximum_sharpe",
+  "minimum_asset_weight": 0.0,
+  "maximum_asset_weight": 1.0,
+  "turnover_constraint": null,
+  "frontier_point_count": 30,
+  "requested_strategies": ["equal_weight", "minimum_variance", "maximum_sharpe", "risk_parity", "efficient_frontier"],
+  "hypothetical_scenarios": ["Equity Selloff", "Rate Shock"],
+  "custom_asset_shocks": {"SPY": -0.20, "QQQ": -0.25, "TLT": 0.08}
+}
+```
+
+R2.3 remains a single-period mean-covariance engine. It does not model transaction
+costs, taxes, liquidity, estimation error, resampling, Black-Litterman views,
+shorting, leverage, multi-period rebalancing, forecasting, or machine learning.

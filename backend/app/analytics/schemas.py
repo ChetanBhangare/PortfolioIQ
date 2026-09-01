@@ -1,5 +1,6 @@
 import math
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -206,4 +207,116 @@ class PortfolioRiskResponse(BaseModel):
     attribution: list[AttributionContribution]
     total_active_contribution: float
     stress_tests: list[StressResult]
+    assumptions: list[str]
+
+
+OptimizationStrategyName = Literal["equal_weight", "minimum_variance", "maximum_sharpe", "risk_parity", "efficient_frontier"]
+
+
+class PortfolioOptimizationRequest(PortfolioAnalyticsRequest):
+    objective: Literal["minimum_variance", "maximum_sharpe", "risk_parity"] = "maximum_sharpe"
+    minimum_asset_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+    maximum_asset_weight: float = Field(default=1.0, ge=0.0, le=1.0)
+    target_return: float | None = None
+    turnover_constraint: float | None = Field(default=None, ge=0.0, le=1.0)
+    long_only: bool = True
+    frontier_point_count: int = Field(default=30, ge=5, le=100)
+    requested_strategies: list[OptimizationStrategyName] = Field(default=["equal_weight", "minimum_variance", "maximum_sharpe", "risk_parity", "efficient_frontier"], min_length=1)
+    hypothetical_scenarios: list[str] = Field(default=[])
+    custom_asset_shocks: dict[str, float] | None = None
+
+    @field_validator("requested_strategies")
+    @classmethod
+    def unique_strategies(cls, values):
+        if len(values) != len(set(values)):
+            raise ValueError("requested_strategies must be unique")
+        return values
+
+    @field_validator("custom_asset_shocks")
+    @classmethod
+    def normalize_shock_tickers(cls, value):
+        return None if value is None else {ticker.strip().upper(): shock for ticker, shock in value.items()}
+
+    @model_validator(mode="after")
+    def validate_optimization_contract(self):
+        if self.minimum_asset_weight > self.maximum_asset_weight:
+            raise ValueError("minimum_asset_weight cannot exceed maximum_asset_weight")
+        if not self.long_only:
+            raise ValueError("R2.3 supports long-only optimization only")
+        if self.objective not in self.requested_strategies:
+            raise ValueError("objective must be included in requested_strategies")
+        return self
+
+
+class SolverDiagnostics(BaseModel):
+    success: bool
+    status: int
+    message: str
+    iterations: int | None
+
+
+class OptimizationRiskContribution(BaseModel):
+    ticker: str
+    weight: float
+    marginal_risk_contribution: float | None
+    component_risk_contribution: float | None
+    percent_risk_contribution: float | None
+
+
+class OptimizationStrategy(BaseModel):
+    strategy: str
+    weights: dict[str, float]
+    expected_annual_return: float
+    annualized_volatility: float
+    sharpe_ratio: float | None
+    largest_position_weight: float
+    top_3_concentration: float
+    top_5_concentration: float
+    hhi: float
+    effective_number_of_holdings: float
+    turnover: float
+    objective_value: float | None
+    solver: SolverDiagnostics
+    target_return: float | None = None
+    risk_contribution: list[OptimizationRiskContribution] | None = None
+
+
+class FrontierSkippedPoint(BaseModel):
+    target_return: float
+    reason: str
+
+
+class HypotheticalShockAsset(BaseModel):
+    ticker: str
+    portfolio_weight: float
+    assumed_shock: float
+    shock_contribution: float
+
+
+class HypotheticalShockResult(BaseModel):
+    name: str
+    type: Literal["illustrative_hypothetical_shock"]
+    asset_shocks: list[HypotheticalShockAsset]
+    total_portfolio_shock: float
+
+
+class PortfolioOptimizationResponse(BaseModel):
+    model_config = ConfigDict(ser_json_inf_nan="null")
+
+    portfolio_name: str
+    period: AnalysisPeriod
+    expected_returns: dict[str, float]
+    current: OptimizationStrategy
+    equal_weight: OptimizationStrategy | None = None
+    minimum_variance: OptimizationStrategy | None = None
+    maximum_sharpe: OptimizationStrategy | None = None
+    risk_parity: OptimizationStrategy | None = None
+    efficient_frontier: list[OptimizationStrategy]
+    frontier_skipped: list[FrontierSkippedPoint]
+    frontier_minimum_volatility: OptimizationStrategy | None
+    frontier_maximum_sharpe: OptimizationStrategy | None
+    recommended_strategy: OptimizationStrategy
+    comparison: list[OptimizationStrategy]
+    hypothetical_stress: list[HypotheticalShockResult]
+    solver_diagnostics: dict[str, SolverDiagnostics]
     assumptions: list[str]
