@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ECRAuthentication",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "PushPortfolioIQBackendImages",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage", "ecr:CompleteLayerUpload", "ecr:InitiateLayerUpload",
+        "ecr:PutImage", "ecr:UploadLayerPart"
+      ],
+      "Resource": "arn:aws:ecr:AWS_REGION:AWS_ACCOUNT_ID:repository/portfolioiq-backend"
+    },
+    {
+      "Sid": "DeployPortfolioIQExpressService",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:CreateCluster", "ecs:RegisterTaskDefinition",
+        "ecs:CreateExpressGatewayService", "ecs:UpdateExpressGatewayService",
+        "ecs:DescribeExpressGatewayService", "ecs:DescribeClusters",
+        "ecs:DescribeServices", "ecs:ListServiceDeployments",
+        "ecs:DescribeServiceDeployments", "ecs:TagResource",
+        "ecs:UntagResource", "ecs:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PassOnlyPortfolioIQServiceRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::AWS_ACCOUNT_ID:role/PortfolioIQBackendRuntimeRole",
+        "arn:aws:iam::AWS_ACCOUNT_ID:role/PortfolioIQECSTaskExecutionRole",
+        "arn:aws:iam::AWS_ACCOUNT_ID:role/PortfolioIQECSExpressInfrastructureRole"
+      ],
+      "Condition": {"StringEquals": {"iam:PassedToService": ["ecs-tasks.amazonaws.com", "ecs.amazonaws.com"]}}
+    }
+  ]
+}

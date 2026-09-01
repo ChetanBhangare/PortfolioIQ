@@ -294,3 +294,43 @@ and default to empty arrays for backward compatibility.
 `http://localhost:8000`. Backend CORS configuration continues to control the
 allowed frontend origin. R2.4 does not introduce server-side frontend data access,
 user accounts, shared portfolios, PostgreSQL, authentication, deployment, or ML.
+
+## Release 2.5 production architecture
+
+```text
+GitHub scheduled refresh -> OIDC refresh role -> S3 Parquet data lake
+
+Browser -> HTTPS -> Vercel Next.js -> HTTPS -> ECS Express/Fargate FastAPI
+                                                   -> read-only task role -> S3
+
+GitHub main deployment -> OIDC deploy role -> ECR -> ECS Express/Fargate
+```
+
+ECS Express Mode is the selected AWS backend because it preserves the normal
+FastAPI container, supplies managed load balancing, service health, networking,
+CloudWatch logs, and autoscaling, and avoids a custom ECS control plane. It is the
+AWS-recommended operational successor for new customers now that App Runner is
+closed to them. Lambda/API Gateway would lower idle cost but adds a Lambda adapter,
+large scientific-package cold starts, and timeout risk for S3-backed optimization.
+
+The backend image installs pinned Python 3.11 dependencies before application code
+for layer caching, runs as an unprivileged user, honors `PORT`, disables development
+reload/access logs, and exposes container and load-balancer health checks. JSON
+application logs record request ID, method, path, status, latency, and categorized
+errors without request bodies, credentials, identities, or analytical responses.
+Unexpected errors return a generic client message while retaining diagnostics in
+CloudWatch.
+
+CORS accepts explicit comma-separated origins and refuses a wildcard when
+`APP_ENV=production`. Vercel embeds the non-secret HTTPS API origin through
+`NEXT_PUBLIC_API_BASE_URL`. ECS application code receives temporary task-role
+credentials automatically; its runtime policy is limited to list/location/read on
+the PortfolioIQ S3 prefix. The task execution role, Express infrastructure role,
+GitHub deploy role, and existing market-refresh role have distinct responsibilities.
+
+Application deployment never mutates market data. The scheduled ingestion workflow
+writes S3 independently, and every backend analysis reads current Parquet through
+the unchanged Release 1 query/storage layer. At measured demo scale, representative
+S3-backed endpoints complete in roughly 1.7–3.3 seconds locally, so no Redis or
+external cache is justified. Deployment and operational procedures are centralized
+in `docs/DEPLOYMENT.md`.

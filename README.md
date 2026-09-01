@@ -378,3 +378,29 @@ R2.4 has no authentication, database-backed portfolios, collaboration, live
 streaming, transaction-cost modeling, or production deployment. Analysis results
 are held in memory and must be rerun after a browser refresh; only portfolio inputs
 persist locally.
+
+## Release 2.5 production deployment preparation
+
+R2.5 prepares version 0.3.1 for a public Vercel frontend and AWS-hosted FastAPI
+backend. The selected backend platform is Amazon ECS Fargate through ECS Express
+Mode. It provides a managed load balancer, HTTPS endpoint, health checking,
+autoscaling, and CloudWatch integration while retaining the tested Docker runtime.
+App Runner was rejected because AWS has closed it to new customers; Lambda/API
+Gateway was rejected for this scientific Python image because cold starts and
+request-duration limits reduce demo reliability.
+
+Production FastAPI uses a configurable `PORT`, non-root container user, structured
+request logs, safe generic internal errors, `/health`, `/ready`, and exact
+comma-separated `CORS_ALLOWED_ORIGINS`. Wildcard production CORS is rejected at
+startup. The Vercel build requires `NEXT_PUBLIC_API_BASE_URL`; production no longer
+silently targets localhost.
+
+Runtime compute assumes `PortfolioIQBackendRuntimeRole`, which can list and read
+only `s3://portfolioiq-cb-data-2026/portfolioiq/*`. GitHub backend deployment uses
+a separate main-branch-only `PortfolioIQGitHubDeployRole` through OIDC. The daily
+data-refresh role and workflow remain independent: refresh updates S3, and the
+public backend sees new objects without redeployment.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact ECR, IAM, ECS Express,
+Vercel, monitoring, budget, smoke-test, troubleshooting, and rollback instructions.
+The repository prepares these assets but does not create resources or deploy them.
