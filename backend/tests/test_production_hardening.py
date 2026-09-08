@@ -39,8 +39,8 @@ def test_health_and_readiness_are_non_sensitive():
     client=TestClient(app)
     health=client.get("/health"); ready=client.get("/ready")
     assert health.status_code==ready.status_code==200
-    assert health.json()=={"status":"ok","service":"portfolioiq-api","version":"0.3.1","release":"R2.5-production-deployment-hardening"}
-    assert ready.json()=={"status":"ready","service":"portfolioiq-api","version":"0.3.1"}
+    assert health.json()=={"status":"ok","service":"portfolioiq-api","version":"0.4.0","release":"R3.1-market-regime-analytics"}
+    assert ready.json()=={"status":"ready","service":"portfolioiq-api","version":"0.4.0"}
     encoded=json.dumps([health.json(),ready.json()]).lower()
     assert "bucket" not in encoded and "arn" not in encoded and "credential" not in encoded
 

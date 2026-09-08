@@ -11,7 +11,7 @@ class OptimizationError(AnalyticsError):
 
 def validate_weight_constraints(asset_count, minimum_weight, maximum_weight, long_only, current_weights, turnover_limit=None):
     if not long_only:
-        raise OptimizationError("R2.3 supports long-only optimization only")
+        raise OptimizationError("PortfolioIQ optimization supports long-only portfolios only")
     if minimum_weight < 0 or maximum_weight < 0:
         raise OptimizationError("Long-only weight bounds cannot be negative")
     if minimum_weight > maximum_weight:

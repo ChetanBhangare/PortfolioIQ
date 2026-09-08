@@ -1,4 +1,4 @@
-"""PortfolioIQ Release 2 portfolio analytics core."""
+"""PortfolioIQ portfolio analytics core."""
 
 
 class AnalyticsError(ValueError):

@@ -1,4 +1,4 @@
-# PortfolioIQ R2.5 Deployment Runbook
+# PortfolioIQ Production Deployment Runbook
 
 PortfolioIQ uses Vercel for Next.js and Amazon ECS Fargate through ECS Express
 Mode for FastAPI. App Runner is not selected because AWS closed it to new
@@ -74,11 +74,11 @@ aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin \
   "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
 
-docker build --platform linux/amd64 -t portfolioiq-backend:0.3.1 backend
-docker tag portfolioiq-backend:0.3.1 \
-  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.3.1"
+docker build --platform linux/amd64 -t portfolioiq-backend:0.4.0 backend
+docker tag portfolioiq-backend:0.4.0 \
+  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.4.0"
 docker push \
-  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.3.1"
+  "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.4.0"
 ```
 
 Add an ECR lifecycle rule retaining approximately ten release/commit images.
@@ -94,7 +94,7 @@ aws ecs create-express-gateway-service \
   --execution-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/PortfolioIQECSTaskExecutionRole" \
   --infrastructure-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/PortfolioIQECSExpressInfrastructureRole" \
   --task-role-arn "arn:aws:iam::$AWS_ACCOUNT_ID:role/PortfolioIQBackendRuntimeRole" \
-  --primary-container "{\"image\":\"$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.3.1\",\"containerPort\":8000,\"environment\":[{\"name\":\"APP_ENV\",\"value\":\"production\"},{\"name\":\"PORT\",\"value\":\"8000\"},{\"name\":\"STORAGE_MODE\",\"value\":\"s3\"},{\"name\":\"AWS_REGION\",\"value\":\"$AWS_REGION\"},{\"name\":\"S3_BUCKET\",\"value\":\"portfolioiq-cb-data-2026\"},{\"name\":\"S3_PREFIX\",\"value\":\"portfolioiq\"},{\"name\":\"CORS_ALLOWED_ORIGINS\",\"value\":\"$VERCEL_ORIGIN\"}]}" \
+  --primary-container "{\"image\":\"$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:0.4.0\",\"containerPort\":8000,\"environment\":[{\"name\":\"APP_ENV\",\"value\":\"production\"},{\"name\":\"PORT\",\"value\":\"8000\"},{\"name\":\"STORAGE_MODE\",\"value\":\"s3\"},{\"name\":\"AWS_REGION\",\"value\":\"$AWS_REGION\"},{\"name\":\"S3_BUCKET\",\"value\":\"portfolioiq-cb-data-2026\"},{\"name\":\"S3_PREFIX\",\"value\":\"portfolioiq\"},{\"name\":\"CORS_ALLOWED_ORIGINS\",\"value\":\"$VERCEL_ORIGIN\"}]}" \
   --cpu 1024 --memory 2048 \
   --health-check-path /health \
   --scaling-target '{"minTaskCount":1,"maxTaskCount":2,"autoScalingMetric":"AVERAGE_CPU","autoScalingTargetValue":70}' \
@@ -197,8 +197,8 @@ closed to new AWS customers and has no planned features.
 
 ## 10. Rollback
 
-Every deployment pushes both a commit SHA and `latest`; ECS deploys the immutable
-SHA. To roll back, redeploy a previously validated SHA from ECR through the manual
+Every deployment pushes and deploys an immutable commit-SHA tag. To roll back,
+redeploy a previously validated SHA from ECR through the manual
 workflow or ECS console. Confirm `/health`, then run the smoke script. Vercel keeps
 prior deployments; promote the previous successful deployment from its dashboard.
 Do not delete prior ECR images until they fall outside the rollback retention set.

@@ -11,12 +11,13 @@ from app.api.analytics import router as analytics_router
 from app.api.data import router as data_router
 from app.api.health import router as health_router
 from app.core.settings import get_settings
+from app.core.version import APP_VERSION
 
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("portfolioiq.api")
-app = FastAPI(title="PortfolioIQ API", version="0.3.1")
+app = FastAPI(title="PortfolioIQ API", version=APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,

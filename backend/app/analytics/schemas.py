@@ -331,7 +331,7 @@ class PortfolioOptimizationRequest(PortfolioAnalyticsRequest):
         if self.minimum_asset_weight > self.maximum_asset_weight:
             raise ValueError("minimum_asset_weight cannot exceed maximum_asset_weight")
         if not self.long_only:
-            raise ValueError("R2.3 supports long-only optimization only")
+            raise ValueError("PortfolioIQ optimization supports long-only portfolios only")
         if self.objective not in self.requested_strategies:
             raise ValueError("objective must be included in requested_strategies")
         return self

@@ -334,3 +334,25 @@ the unchanged Release 1 query/storage layer. At measured demo scale, representat
 S3-backed endpoints complete in roughly 1.7–3.3 seconds locally, so no Redis or
 external cache is justified. Deployment and operational procedures are centralized
 in `docs/DEPLOYMENT.md`.
+
+## Release 3.1 market regime architecture
+
+R3.1 adds a separate `POST /api/analytics/portfolio/regime` contract without
+changing the established portfolio, risk, or optimization responses. The regime
+service reuses `PortfolioAnalyticsService.prepare_returns`, so holdings and the
+market proxy share the same date alignment and each unique ticker is loaded once
+per request through the existing local/S3 storage abstraction.
+
+The default model classifies SPY using trailing information only: a 63-day
+compounded return separates bull from bear observations at zero, while 21-day
+sample volatility annualized by `sqrt(252)` separates low and high volatility at
+20%. Dates without both rolling measures remain unclassified. Pure functions
+produce canonical regime labels, contiguous periods, and JSON-safe portfolio
+statistics for each regime; no clustering, fitted ML model, future observation,
+or full-sample percentile is used.
+
+The frontend adds the regime request to the existing concurrent Run Analysis
+workflow and stores it in the shared analysis bundle. `/regimes` uses the common
+Plotly wrapper, metric cards, state handling, formatting, and navigation system.
+The analysis is descriptive and conditional returns compound non-contiguous days
+within a regime rather than representing one continuous holding period.

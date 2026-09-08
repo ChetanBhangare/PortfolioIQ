@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.analytics.constraints import OptimizationError, turnover, validate_weight_constraints
+from app.analytics.constraints import OptimizationError, validate_weight_constraints
 from app.analytics.optimization import (
     efficient_frontier,
     equal_weight_portfolio,

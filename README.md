@@ -1,7 +1,7 @@
 # PortfolioIQ
 ## Cloud-Native Portfolio Analytics, Risk & Investment Intelligence Platform
 
-PortfolioIQ is an end-to-end financial analytics platform. Release 1 builds the cloud data foundation: incremental market-data ingestion, validation, AWS S3 Parquet storage, DuckDB-ready datasets, FastAPI, Next.js, Docker, tests, and CI.
+PortfolioIQ is an end-to-end financial analytics platform running on AWS and Vercel. The current R3.1 release combines an S3/Parquet data lake, portfolio analytics, risk and optimization, and interpretable market-regime analysis behind FastAPI and Next.js.
 
 ### Releases
 1. Cloud Data Platform
@@ -9,6 +9,7 @@ PortfolioIQ is an end-to-end financial analytics platform. Release 1 builds the 
 3. Quant Intelligence
 4. Full Web Application
 5. Production Deployment
+6. Market Regime Analytics
 
 ### Architecture
 External APIs -> Python ETL -> AWS S3 (Parquet) -> DuckDB/Python -> Analytics/ML -> FastAPI -> Next.js
@@ -403,4 +404,25 @@ public backend sees new objects without redeployment.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact ECR, IAM, ECS Express,
 Vercel, monitoring, budget, smoke-test, troubleshooting, and rollback instructions.
-The repository prepares these assets but does not create resources or deploy them.
+
+## Release 3.1 market regime analytics
+
+R3.1 advances PortfolioIQ to version 0.4.0 and adds deterministic historical
+market-regime analysis. `POST /api/analytics/portfolio/regime` classifies SPY by
+default into bull/bear and low/high-volatility states using a 63-trading-day
+rolling cumulative return, 21-trading-day realized volatility, and a fixed 20%
+annualized volatility threshold. The calculation uses only information available
+through each observation and does not forward-fill warm-up dates.
+
+The response includes the current regime, daily classification history,
+contiguous regime periods, and portfolio performance segmented across all four
+states. The Next.js Market Regimes page presents the timeline, annualized return
+and volatility comparisons, conditional performance, and explicit methodology
+limitations. The existing Run Analysis action requests performance, risk,
+optimization, and regime results concurrently and retains the complete bundle in
+shared client state.
+
+PortfolioIQ R3.1 is deployed with a Vercel frontend and an AWS ECS/Fargate
+FastAPI backend reading private S3 Parquet data through its task role. The full
+backend suite contains 91 deterministic tests. Regime classification is
+descriptive rather than predictive and is not investment advice.
