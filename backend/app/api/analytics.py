@@ -11,8 +11,11 @@ from app.analytics.schemas import (
     PortfolioRiskResponse,
     PortfolioOptimizationRequest,
     PortfolioOptimizationResponse,
+    PortfolioRegimeRequest,
+    PortfolioRegimeResponse,
 )
 from app.analytics.optimization_service import PortfolioOptimizationService
+from app.analytics.regime_service import PortfolioRegimeService
 from app.analytics.risk_service import PortfolioRiskService
 from app.analytics.service import PortfolioAnalyticsService
 
@@ -20,6 +23,7 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 service = PortfolioAnalyticsService()
 risk_service = PortfolioRiskService(service)
 optimization_service = PortfolioOptimizationService(service)
+regime_service = PortfolioRegimeService()
 logger = logging.getLogger("portfolioiq.analytics")
 
 
@@ -50,3 +54,11 @@ def optimize_portfolio(request: PortfolioOptimizationRequest):
         return optimization_service.analyze(request)
     except AnalyticsError as error:
         raise calculation_error("optimization", error) from error
+
+
+@router.post("/portfolio/regime", response_model=PortfolioRegimeResponse)
+def analyze_portfolio_regime(request: PortfolioRegimeRequest):
+    try:
+        return regime_service.analyze(request)
+    except AnalyticsError as error:
+        raise calculation_error("regime", error) from error

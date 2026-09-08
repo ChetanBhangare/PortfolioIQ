@@ -127,6 +127,75 @@ class PortfolioAnalyticsResponse(BaseModel):
     assumptions: list[str]
 
 
+RegimeName = Literal["bull_low_vol", "bull_high_vol", "bear_low_vol", "bear_high_vol"]
+
+
+class PortfolioRegimeRequest(PortfolioAnalyticsRequest):
+    market_proxy: str = "SPY"
+    trend_window: int = Field(default=63, ge=2, le=504)
+    volatility_window: int = Field(default=21, ge=2, le=252)
+    volatility_threshold: float = Field(default=0.20, gt=0.0, le=2.0)
+
+    @field_validator("market_proxy")
+    @classmethod
+    def normalize_market_proxy(cls, value):
+        ticker = value.strip().upper()
+        if ticker not in DEFAULT_ASSET_UNIVERSE:
+            raise ValueError(f"Market proxy {ticker} is not in the configured universe")
+        return ticker
+
+
+class RegimeMethodology(BaseModel):
+    trend_window: int
+    volatility_window: int
+    volatility_threshold: float
+    annualization_factor: int
+    trend_definition: str
+    volatility_definition: str
+
+
+class RegimeHistoryPoint(BaseModel):
+    date: date
+    regime: RegimeName
+    rolling_trend: float
+    realized_volatility: float
+
+
+class RegimePeriod(BaseModel):
+    regime: RegimeName
+    start_date: date
+    end_date: date
+    observations: int
+
+
+class RegimePerformance(BaseModel):
+    regime: RegimeName
+    observations: int
+    percentage_of_classified_history: float
+    average_daily_return: float | None
+    annualized_return: float | None
+    annualized_volatility: float | None
+    sharpe_ratio: float | None
+    positive_day_percentage: float | None
+    compounded_conditional_return: float | None
+
+
+class PortfolioRegimeResponse(BaseModel):
+    model_config = ConfigDict(ser_json_inf_nan="null")
+
+    analysis_start: date
+    analysis_end: date
+    market_proxy: str
+    current_regime: RegimeName
+    classified_observations: int
+    omitted_warmup_observations: int
+    methodology: RegimeMethodology
+    regime_history: list[RegimeHistoryPoint]
+    regime_periods: list[RegimePeriod]
+    regime_performance: list[RegimePerformance]
+    assumptions: list[str]
+
+
 class CustomStressWindow(BaseModel):
     start_date: date
     end_date: date

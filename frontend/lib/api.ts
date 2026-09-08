@@ -1,4 +1,4 @@
-import type {OptimizationResponse,PortfolioInput,PortfolioResponse,RiskResponse} from "./types";
+import type {OptimizationResponse,PortfolioInput,PortfolioResponse,RegimeResponse,RiskResponse} from "./types";
 const configuredApiBase=process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/,"");
 function apiBase(){if(configuredApiBase)return configuredApiBase;if(process.env.NODE_ENV==="development")return "http://localhost:8000";throw new ApiError("PortfolioIQ is missing its production analytics API configuration.")}
 export class ApiError extends Error{constructor(message:string,public status?:number){super(message);this.name="ApiError"}}
@@ -6,4 +6,5 @@ async function post<T>(path:string,body:unknown):Promise<T>{const controller=new
 export const analyzePortfolio=(input:PortfolioInput)=>post<PortfolioResponse>("/api/analytics/portfolio",input);
 export const analyzeRisk=(input:PortfolioInput)=>post<RiskResponse>("/api/analytics/portfolio/risk",{...input,confidence_levels:[.95,.99]});
 export const optimizePortfolio=(input:PortfolioInput,custom?:Record<string,number>)=>post<OptimizationResponse>("/api/analytics/portfolio/optimize",{...input,objective:"maximum_sharpe",minimum_asset_weight:0,maximum_asset_weight:1,frontier_point_count:30,requested_strategies:["equal_weight","minimum_variance","maximum_sharpe","risk_parity","efficient_frontier"],hypothetical_scenarios:["Equity Selloff","Rate Shock","Risk-Off","Inflation Shock"],custom_asset_shocks:custom});
+export const analyzeRegimes=(input:PortfolioInput)=>post<RegimeResponse>("/api/analytics/portfolio/regime",input);
 export const getHealth=async()=>{const response=await fetch(`${apiBase()}/health`,{cache:"no-store"});if(!response.ok)throw new ApiError("Backend unavailable",response.status);return response.json() as Promise<{status:string;version:string;release:string}>};
